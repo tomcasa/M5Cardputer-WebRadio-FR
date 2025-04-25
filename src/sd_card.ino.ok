@@ -1,0 +1,201 @@
+/**
+ * @file sdcard.ino
+ * @author SeanKwok (shaoxiang@m5stack.com)
+ * @brief M5Cardputer MicroSD Card Test
+ * @version 0.1
+ * @date 2024-01-19
+ *
+ *
+ * @Hardwares: M5Cardputer
+ * @Platform Version: Arduino M5Stack Board Manager v2.1.0
+ * @Dependent Library:
+ * M5GFX: https://github.com/m5stack/M5GFX
+ * M5Unified: https://github.com/m5stack/M5Unified
+ * M5Cardputer: https://github.com/m5stack/M5Cardputer
+ */
+
+ #include <M5Cardputer.h>
+ #include <SPI.h>
+ #include <SD.h>
+ 
+ #define SD_SPI_SCK_PIN  40
+ #define SD_SPI_MISO_PIN 39
+ #define SD_SPI_MOSI_PIN 14
+ #define SD_SPI_CS_PIN   12
+ 
+ void listDir(fs::FS &fs, const char *dirname, uint8_t levels);
+ void createDir(fs::FS &fs, const char *path);
+ void removeDir(fs::FS &fs, const char *path);
+ void readFile(fs::FS &fs, const char *path);
+ void writeFile(fs::FS &fs, const char *path, const char *message);
+ void appendFile(fs::FS &fs, const char *path, const char *message);
+ void renameFile(fs::FS &fs, const char *path1, const char *path2);
+ void deleteFile(fs::FS &fs, const char *path);
+ void testFileIO(fs::FS &fs, const char *path);
+ 
+ M5Canvas canvas(&M5Cardputer.Display);
+ 
+  void println_log(const char *str);
+ 
+ void setup() {
+     M5Cardputer.begin();
+     M5Cardputer.Display.setRotation(1);
+     canvas.setColorDepth(1);  // mono color
+     canvas.createSprite(M5Cardputer.Display.width(),
+                         M5Cardputer.Display.height());
+     canvas.setPaletteColor(1, GREEN);
+     canvas.setTextSize((float)canvas.width() / 160);
+     canvas.setTextScroll(true);
+ 
+     // SD Card Initialization
+     SPI.begin(SD_SPI_SCK_PIN, SD_SPI_MISO_PIN, SD_SPI_MOSI_PIN, SD_SPI_CS_PIN);
+ 
+     if (!SD.begin(SD_SPI_CS_PIN, SPI, 25000000)) {
+         // Print a message if the SD card initialization
+         // fails orif the SD card does not exist.
+         // 如果SD卡初始化失败或者SD卡不存在，则打印消息.
+         println_log("Card failed, or not present");
+         while (1)
+             ;
+     }
+ 
+     uint8_t cardType = SD.cardType();
+ 
+     if (cardType == CARD_NONE) {
+         println_log("No SD card attached");
+         return;
+     }
+     char fullMessage[64] = "";
+
+     Serial.begin(115200);
+     Serial.print("SD Card Type: ");
+     if (cardType == CARD_MMC) {
+         println_log("MMC");
+     } else if (cardType == CARD_SD) {
+         println_log("SDSC");
+     } else if (cardType == CARD_SDHC) {
+         println_log("SDHC");
+     } else {
+         println_log("UNKNOWN");
+     }
+ 
+     uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+     snprintf(fullMessage, sizeof(fullMessage), "SD Card Size: %lu MB", cardSize );  println_log(fullMessage);
+ 
+     //listDir(SD, "/", 0);
+     //createDir(SD, "/webradio");
+     
+     //listDir(SD, "/webradio", 0);
+
+     //writeFile(SD, "/webradio/hello.txt", "Hello 1\n");
+     //appendFile(SD, "/webradio/hello.txt", "World!\n");
+     readFile(SD, "/webradio/stations.txt");
+
+     snprintf(fullMessage, sizeof(fullMessage), "Total space: %lu MB\n", SD.totalBytes() / (1024 * 1024) );  println_log(fullMessage);
+     snprintf(fullMessage, sizeof(fullMessage), "Used space: %lu MB\n", SD.usedBytes() / (1024 * 1024) );  println_log(fullMessage);
+ 
+ }
+ void loop() {
+ }
+ 
+ void listDir(fs::FS &fs, const char *dirname, uint8_t levels) {
+    println_log(  dirname);
+ 
+     File root = fs.open(dirname);
+     if (!root) {
+         println_log("Failed to open directory");
+         return;
+     }
+     if (!root.isDirectory()) {
+         println_log("Not a directory");
+         return;
+     }
+ 
+     File file = root.openNextFile();
+     while (file) {
+         if (file.isDirectory()) {
+             Serial.print("  DIR : ");
+             println_log(file.name());
+             if (levels) {
+                 listDir(fs, file.path(), levels - 1);
+             }
+         } else {
+             Serial.print("  FILE: ");
+             Serial.print(file.name());
+             Serial.print("  SIZE: ");
+             println_log(String(file.size()).c_str());
+         }
+         file = root.openNextFile();
+     }
+ }
+ 
+ void createDir(fs::FS &fs, const char *path) {
+    println_log(  path);
+     if (fs.mkdir(path)) {
+         println_log("Dir created");
+     } else {
+         println_log("mkdir failed");
+     }
+ }
+ 
+ void removeDir(fs::FS &fs, const char *path) {
+    println_log(  path);
+     if (fs.rmdir(path)) {
+         println_log("Dir removed");
+     } else {
+         println_log("rmdir failed");
+     }
+ }
+ 
+ const int MAX_STATIONS = 60; 
+ char station_list[MAX_STATIONS][2][100]; // 60 stations, 2 champs, 100 caractères max
+
+ void readFile(fs::FS &fs, const char *path) {
+    println_log(path);
+ 
+     File file = fs.open(path);
+     if (!file) {
+         println_log("Failed to open file for reading");
+         return;
+     }
+ 
+     Serial.print("Read from file: ");
+     int station_count = 0;
+     while (file.available() && station_count < MAX_STATIONS) {        
+        String line = file.readStringUntil('\n');
+        line.trim();
+        int commaIndex = line.indexOf(';');
+        if (commaIndex > 0) {
+            line.substring(0, commaIndex).toCharArray(station_list[station_count][0], 32);
+            line.substring(commaIndex + 1).toCharArray(station_list[station_count][1], 32);
+            station_count++;
+          }
+
+          println_log(line.c_str()); 
+    }
+
+     file.close();
+ }
+ 
+ void writeFile(fs::FS &fs, const char *path, const char *message) {
+    println_log(  path);
+ 
+     File file = fs.open(path, FILE_WRITE);
+     if (!file) {
+         println_log("Failed to open file for writing");
+         return;
+     }
+     if (file.print(message)) {
+         println_log("File written");
+     } else {
+         println_log("Write failed");
+     }
+     file.close();
+ }
+  
+ 
+ void println_log(const char *str) {
+     Serial.println(str);
+     canvas.println(str);
+     canvas.pushSprite(0, 0);
+ }

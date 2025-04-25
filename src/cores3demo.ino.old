@@ -1,0 +1,40 @@
+#include <M5Unified.h>
+
+void setup() {
+  
+  
+  auto cfg = M5.config();
+  
+  // begin M5Unified.
+  M5.begin(cfg);
+  
+    /// play beep sound 2000Hz 100msec (background task)
+  M5.Speaker.tone(2000, 100);
+
+  /// For models with LCD : backlight control (0~255)
+  M5.Display.setBrightness(128);
+
+  if (M5.Display.width() < M5.Display.height())
+  { /// Landscape mode.
+    M5.Display.setRotation(M5.Display.getRotation() ^ 1);
+  }
+
+  // multi display.
+  size_t display_count = M5.getDisplayCount();
+  for (int i = 0; i < display_count; ++i) {
+    M5.Displays(i).startWrite();
+    for (int y = 0; y < 128; ++y)
+    {
+      for (int x = 0; x < 128; ++x)
+      {
+        M5.Displays(i).writePixel(x, y, M5.Display.color888(x*2,x+y,y*2));
+      }
+    }
+    M5.Displays(i).printf("Display %d\n", i);
+    M5.Displays(i).endWrite();
+  }
+
+}
+
+void loop() { 
+}
