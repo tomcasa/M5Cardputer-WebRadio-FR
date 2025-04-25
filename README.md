@@ -1,11 +1,11 @@
  
 # M5Cardputer WebRadio FR version
 
-M5Cardputer_WebRadio needs these Librarys: 
-M5Unified : https://github.com/m5stack/M5Unified 
-ESP8266Audio: https://github.com/earlephilhower/ESP8266Audio
+M5Cardputer_WebRadio needs these Librarys : 
+- M5Unified : https://github.com/m5stack/M5Unified 
+- ESP8266Audio: https://github.com/earlephilhower/ESP8266Audio
 
-![image](https://github.com/tomcasa/M5Cardputer-WebRadio-FR/slash.jpg)
+![image](slash.jpg)
 
 ----
 WiFi Settings will be stored in EEPROM
